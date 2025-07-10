@@ -67,11 +67,9 @@ const toggleOverlay = async () => {
 // Close overlay
 const closeOverlay = async () => {
   try {
-    await invoke('cleanup_overlay', { with_exit: true })
-    // Close the application
-    window.close()
+    await invoke('quit_app')
   } catch (error) {
-    console.error('Failed to close overlay:', error)
+    console.error('Failed to quit application:', error)
   }
 }
 

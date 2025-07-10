@@ -87,14 +87,15 @@ async fn check_overlay_permissions() -> ApiResponse<bool> {
 
 /// Cleanup overlay resources
 #[tauri::command]
-async fn cleanup_overlay(with_exit: bool) -> ApiResponse<()> {
+async fn cleanup_overlay(with_exit: bool, window: tauri::Window) -> ApiResponse<()> {
     match overlay::cleanup_overlay() {
         Ok(_) => ApiResponse::success(()),
         Err(e) => ApiResponse::error(format!("Failed to cleanup overlay: {}", e)),
     };
 
     if with_exit {
-        std::process::exit(0);
+        // Use Tauri's proper exit mechanism instead of std::process::exit
+        window.close().unwrap();
     }
     ApiResponse::success(())
 }
@@ -196,6 +197,19 @@ async fn get_click_through(_window: tauri::Window) -> ApiResponse<bool> {
     }
 }
 
+/// Quit the application properly
+#[tauri::command]
+async fn quit_app(window: tauri::Window) -> ApiResponse<()> {
+    // Cleanup overlay resources first
+    if let Err(e) = overlay::cleanup_overlay() {
+        eprintln!("Warning: Failed to cleanup overlay during quit: {}", e);
+    }
+    
+    // Close the window properly
+    window.close().unwrap();
+    ApiResponse::success(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -207,8 +221,8 @@ pub fn run() {
             // Initialize hotkey manager
             let hotkey_manager = HotkeyManager::new(app_handle.clone());
             
-            // Register hotkeys and start listener
-            tokio::spawn(async move {
+            // Register hotkeys and start listener using Tauri's runtime
+            tauri::async_runtime::spawn(async move {
                 if let Err(e) = hotkey_manager.register_hotkeys().await {
                     eprintln!("Failed to register hotkeys: {}", e);
                 }
@@ -237,7 +251,8 @@ pub fn run() {
             test_hotkey,
             trigger_action,
             set_click_through,
-            get_click_through
+            get_click_through,
+            quit_app
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
