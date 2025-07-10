@@ -237,6 +237,14 @@ const initClickThrough = async () => {
   }
 }
 
+function onModelTypeToggle(event: Event) {
+  const target = event.target as HTMLInputElement | null;
+  if (!target) return;
+  if (settingsStore.subscription === 'max') {
+    settingsStore.modelType = target.checked ? 'online' : 'local';
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   await initOverlay()
@@ -345,49 +353,91 @@ onUnmounted(() => {
     <!-- Settings Modal -->
     <div v-if="showSettings" class="settings-modal" @click="closeSettings">
       <div class="settings-content" @click.stop>
+        <!-- Header with user profile -->
         <div class="settings-header">
-          <h3>Settings</h3>
-          <button @click="closeSettings" class="close-btn">
-            <i class="fas fa-times"></i>
-          </button>
+          <div class="header-left">
+            <h3>Settings</h3>
+          </div>
+          <div class="header-right">
+            <div class="user-profile">
+              <div class="profile-avatar">
+                <i class="fas fa-user"></i>
+              </div>
+              <div class="profile-info">
+                <span class="profile-name">TTAWin User</span>
+                <span class="profile-status">
+                  <span class="subscription-badge max">Max</span>
+                  <!-- For demo: change to 'edge' or 'go' for other tiers -->
+                </span>
+              </div>
+            </div>
+            <button @click="closeSettings" class="close-settings-btn">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
         </div>
-        
+
+        <!-- Settings Content -->
         <div class="settings-body">
-          <div class="setting-group">
-            <h4>User Profile</h4>
-            <div class="setting-item">
-              <label>Account Status:</label>
-              <span class="status-badge trial">Trial Mode</span>
+          <div class="settings-grid">
+            <!-- Audio Transcription Toggle -->
+            <div class="setting-card">
+              <div class="setting-header">
+                <i class="fas fa-wave-square"></i>
+                <div class="setting-info">
+                  <h5>Audio Transcription</h5>
+                  <p>Enable or disable real-time audio transcription</p>
+                </div>
+              </div>
+              <div class="setting-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="settingsStore.audioTranscription" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
             </div>
-            <button class="btn-secondary">Login / Create Account</button>
-          </div>
-          
-          <div class="setting-group">
-            <h4>Macro Commands</h4>
-            <div class="setting-item">
-              <label>Enable Macros:</label>
-              <input type="checkbox" v-model="settingsStore.macrosEnabled" />
+
+            <!-- EchoTap Toggle -->
+            <div class="setting-card">
+              <div class="setting-header">
+                <i class="fas fa-broadcast-tower"></i>
+                <div class="setting-info">
+                  <h5>EchoTap</h5>
+                  <p>Allow users on your local network to listen in (EchoTap mode)</p>
+                </div>
+              </div>
+              <div class="setting-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" v-model="settingsStore.echotap" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
             </div>
-            <div class="setting-item">
-              <label>Hotkey:</label>
-              <input type="text" v-model="settingsStore.hotkey" placeholder="Ctrl+Shift+M" />
-            </div>
-          </div>
-          
-          <div class="setting-group">
-            <h4>Overlay Settings</h4>
-            <div class="setting-item">
-              <label>Transparency:</label>
-              <input type="range" v-model="settingsStore.transparency" min="0" max="100" />
-              <span>{{ settingsStore.transparency }}%</span>
-            </div>
-            <div class="setting-item">
-              <label>Always on Top:</label>
-              <input type="checkbox" v-model="settingsStore.alwaysOnTop" />
-            </div>
-            <div class="setting-item">
-              <label>Click Through (Allow interaction with background apps):</label>
-              <input type="checkbox" v-model="clickThroughEnabled" @change="toggleClickThrough" />
+
+            <!-- Model Type Toggle (Online/Local) -->
+            <div class="setting-card">
+              <div class="setting-header">
+                <i class="fas fa-microchip"></i>
+                <div class="setting-info">
+                  <h5>Model Type</h5>
+                  <p>
+                    <span v-if="settingsStore.modelType === 'online'">Currently using Online mode.</span>
+                    <span v-else>Currently using Local mode.</span>
+                    <span v-if="settingsStore.subscription !== 'max'" class="model-lock"> (Max only for Online)</span>
+                  </p>
+                </div>
+              </div>
+              <div class="setting-control">
+                <label class="toggle-switch">
+                  <input
+                    type="checkbox"
+                    :checked="settingsStore.modelType === 'online'"
+                    @change="onModelTypeToggle($event)"
+                    :disabled="settingsStore.subscription !== 'max'"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -578,14 +628,15 @@ onUnmounted(() => {
   color: #F04747;
 }
 
-/* Settings Modal */
+/* Settings Modal - Modern Design */
 .settings-modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -594,97 +645,315 @@ onUnmounted(() => {
 
 .settings-content {
   background: rgba(54, 57, 63, 0.98);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  min-width: 340px;
+  max-width: 420px;
+  min-height: 0;
+  max-height: 90vh;
+  width: auto;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  padding: 0;
 }
 
+/* Header with User Profile */
 .settings-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
+  padding: 20px 24px 12px 24px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(64, 68, 75, 0.3);
 }
 
-.settings-header h3 {
-  margin: 0;
-  color: #E8E8E8;
+.header-left h3 {
+  margin: 0 0 4px 0;
+  color: #FFFFFF;
+  font-size: 24px;
+  font-weight: 700;
 }
 
+.header-subtitle {
+  color: #B9BBBE;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-avatar {
+  width: 32px;
+  height: 32px;
+  background: #5865F2;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-name {
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profile-status {
+  color: #43B581;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.close-settings-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+  color: #B9BBBE;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.close-settings-btn:hover {
+  background: rgba(240, 71, 71, 0.1);
+  color: #F04747;
+  border-color: rgba(240, 71, 71, 0.3);
+}
+
+
+
+/* Settings Body */
 .settings-body {
-  padding: 24px;
+  flex: 1;
+  padding: 20px 24px 24px 24px;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.setting-group {
-  margin-bottom: 30px;
+
+
+.section-header {
+  margin-bottom: 32px;
 }
 
-.setting-group h4 {
-  margin: 0 0 15px 0;
-  color: #E8E8E8;
+.section-header h4 {
+  margin: 0 0 8px 0;
+  color: #FFFFFF;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.section-header p {
+  margin: 0;
+  color: #B9BBBE;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Settings Grid */
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.setting-card {
+  background: rgba(64, 68, 75, 0.3);
+  border-radius: 12px;
+  padding: 18px 18px 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.setting-card:hover {
+  background: rgba(64, 68, 75, 0.4);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.setting-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.setting-header i {
+  color: #5865F2;
   font-size: 18px;
+  margin-top: 2px;
 }
 
-.setting-item {
+.setting-info h5 {
+  margin: 0 0 4px 0;
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.setting-info p {
+  margin: 0;
+  color: #B9BBBE;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.setting-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 15px;
-  padding: 10px 0;
 }
 
-.setting-item label {
-  font-weight: 500;
-  color: #C8C8C8;
+
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
 }
 
-.setting-item input[type="text"] {
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  font-size: 14px;
-  background: rgba(64, 68, 75, 0.8);
-  color: #E8E8E8;
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
 
-.setting-item input[type="range"] {
-  width: 100px;
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: 0.3s;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #B9BBBE;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: #5865F2;
+  border-color: #5865F2;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+  background-color: white;
+}
+
+/* Status Badge */
 .status-badge {
-  padding: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
 }
 
-.status-badge.trial {
-  background: rgba(242, 192, 55, 0.2);
-  color: #f2c037;
+.status-badge.active {
+  background: rgba(67, 181, 129, 0.2);
+  color: #43B581;
+  border: 1px solid rgba(67, 181, 129, 0.3);
 }
 
-.btn-secondary {
-  padding: 10px 20px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  background: rgba(54, 57, 63, 0.9);
-  color: #C8C8C8;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.status-badge.inactive {
+  background: rgba(240, 71, 71, 0.2);
+  color: #F04747;
+  border: 1px solid rgba(240, 71, 71, 0.3);
+}
+
+/* Audio Meter */
+.audio-meter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.meter-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #43B581, #5865F2);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.meter-value {
+  color: #FFFFFF;
+  font-weight: 600;
   font-size: 14px;
+  min-width: 40px;
+  text-align: right;
 }
 
-.btn-secondary:hover {
-  background: rgba(64, 68, 75, 0.9);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #E8E8E8;
+/* Hotkey Display */
+.hotkey-display {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #FFFFFF;
+  font-family: 'Fira Mono', 'Consolas', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
+
+
 
 .mic-btn {
   position: relative;
@@ -735,5 +1004,69 @@ onUnmounted(() => {
   text-align: center;
   width: 100%;
   font-weight: 500;
+}
+.model-type-options {
+  display: flex;
+  gap: 20px;
+  border-radius: 12px;
+  overflow: visible;
+  border: none;
+  background: none;
+  margin: 24px 0 12px 0;
+}
+.model-type-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 0;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  color: #B9BBBE;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  outline: none;
+  position: relative;
+  min-width: 120px;
+  min-height: 56px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.model-type-option input[type="radio"] {
+  display: none;
+}
+.model-type-option.active {
+  background: #5865F2;
+  color: #fff;
+  border-color: #5865F2;
+  z-index: 1;
+}
+.model-type-option:not(.active):hover:not(.disabled) {
+  background: rgba(88,101,242,0.10);
+  color: #7289DA;
+  border-color: #7289DA;
+}
+.model-type-option.disabled,
+.model-type-option:disabled {
+  background: rgba(255,255,255,0.02);
+  color: #888;
+  cursor: not-allowed;
+  opacity: 0.6;
+  border-color: transparent;
+}
+.option-label {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.model-lock {
+  font-size: 11px;
+  color: #F04747;
+  margin-left: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 </style>

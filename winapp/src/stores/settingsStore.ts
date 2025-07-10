@@ -6,13 +6,21 @@ export const useSettingsStore = defineStore('settings', {
     hotkey: 'Ctrl+Shift+M',
     transparency: 50,
     alwaysOnTop: true,
-    // Add more settings as needed
+    // New fields for condensed settings modal
+    audioTranscription: false,
+    echotap: false,
+    modelType: 'local', // 'local' or 'online'
+    subscription: 'max', // 'max', 'edge', 'go'
   }),
   actions: {
     setMacrosEnabled(val: boolean) { this.macrosEnabled = val },
     setHotkey(val: string) { this.hotkey = val },
     setTransparency(val: number) { this.transparency = val },
     setAlwaysOnTop(val: boolean) { this.alwaysOnTop = val },
-    // Add more setters as needed
+    // New setters
+    setAudioTranscription(val: boolean) { this.audioTranscription = val },
+    setEchotap(val: boolean) { this.echotap = val },
+    setModelType(val: string) { this.modelType = val },
+    setSubscription(val: string) { this.subscription = val },
   }
 }) 
