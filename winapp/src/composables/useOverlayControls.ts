@@ -33,6 +33,20 @@ export function useOverlayControls() {
     }
   }
 
+  const startAudioStream = async () => {
+    const res = await invoke('start_audio_stream')
+    if (res && typeof res === 'object' && 'data' in res) {
+      console.log('Audio stream started')
+    }
+  }
+
+  const stopAudioStream = async () => {
+    const res = await invoke('stop_audio_stream')
+    if (res && typeof res === 'object' && 'data' in res) {
+      console.log('Audio stream stopped')
+    }
+  }
+
   onMounted(() => {
     fetchMonitors()
     fetchMicState()
@@ -44,5 +58,7 @@ export function useOverlayControls() {
     switchMonitor,
     fetchMicState,
     toggleMic,
+    startAudioStream,
+    stopAudioStream,
   }
 } 

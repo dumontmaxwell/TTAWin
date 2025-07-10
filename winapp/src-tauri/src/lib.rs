@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
 use win_sys::OverlayState;
+mod shortcuts;
+use shortcuts::HotkeyManager;
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -108,14 +111,38 @@ async fn switch_monitor(window: tauri::Window, current_index: usize) -> ApiRespo
 
 #[tauri::command]
 async fn get_mic_state() -> ApiResponse<bool> {
-    // Stub: Always enabled
+    // For now, return true as mic is available
+    // TODO: Integrate with mic-recorder plugin for actual state
     ApiResponse::success(true)
 }
 
 #[tauri::command]
 async fn toggle_mic(current: bool) -> ApiResponse<bool> {
-    // Stub: Just invert
+    // TODO: Integrate with mic-recorder plugin to start/stop recording
     ApiResponse::success(!current)
+}
+
+#[tauri::command]
+async fn start_audio_stream() -> ApiResponse<()> {
+    // TODO: Use mic-recorder plugin to start audio streaming
+    // This will be integrated with your transcription system
+    ApiResponse::success(())
+}
+
+#[tauri::command]
+async fn stop_audio_stream() -> ApiResponse<()> {
+    // TODO: Use mic-recorder plugin to stop audio streaming
+    ApiResponse::success(())
+}
+
+/// Test hotkey trigger (for debugging)
+#[tauri::command]
+async fn test_hotkey(action: String, window: tauri::Window) -> ApiResponse<()> {
+    if let Err(e) = window.emit("hotkey-triggered", action) {
+        ApiResponse::error(format!("Failed to emit hotkey event: {}", e))
+    } else {
+        ApiResponse::success(())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -123,6 +150,25 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_mic_recorder::init())
+        .setup(|app| {
+            let app_handle = app.handle();
+            
+            // Initialize hotkey manager
+            let hotkey_manager = HotkeyManager::new(app_handle.clone());
+            
+            // Register hotkeys and start listener
+            tokio::spawn(async move {
+                if let Err(e) = hotkey_manager.register_hotkeys().await {
+                    eprintln!("Failed to register hotkeys: {}", e);
+                }
+                
+                if let Err(e) = hotkey_manager.start_hotkey_listener().await {
+                    eprintln!("Failed to start hotkey listener: {}", e);
+                }
+            });
+            
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             init_overlay,
             enable_overlay,
@@ -134,7 +180,10 @@ pub fn run() {
             get_monitors,
             switch_monitor,
             get_mic_state,
-            toggle_mic
+            toggle_mic,
+            start_audio_stream,
+            stop_audio_stream,
+            test_hotkey
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

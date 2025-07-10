@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { invoke } from "@tauri-apps/api/core"
+import { listen } from '@tauri-apps/api/event'
 // Pinia and composable imports
 import { useOverlayControls } from './composables/useOverlayControls'
 import { useSettings } from './composables/useSettings'
@@ -23,6 +24,7 @@ const overlayState = ref<OverlayState>({
 const showSettings = ref(false)
 
 let statusInterval: number | null = null
+let unlistenFns: (() => void)[] = []
 
 // Initialize overlay system
 const initOverlay = async () => {
@@ -99,10 +101,58 @@ const SHORTCUTS = {
   quit: 'Ctrl+Shift+Q',
 }
 
+// Handle hotkey events from Rust
+const handleHotkeyEvent = async (event: any) => {
+  const { action } = event.payload
+  
+  console.log('Hotkey triggered:', action)
+  
+  switch (action) {
+    case 'toggle_mic':
+      await toggleMic()
+      break
+    case 'switch_monitor':
+      if (monitors.value.length > 1) {
+        await switchMonitor()
+      }
+      break
+    case 'open_settings':
+      openSettings()
+      break
+    case 'quit':
+      await closeOverlay()
+      break
+    default:
+      console.log('Unknown hotkey action:', action)
+  }
+}
+
+// Setup hotkey listeners
+const setupHotkeyListeners = async () => {
+  try {
+    const unlisten = await listen('hotkey-triggered', handleHotkeyEvent)
+    unlistenFns.push(unlisten)
+    console.log('Hotkey listeners setup complete')
+  } catch (error) {
+    console.error('Failed to setup hotkey listeners:', error)
+  }
+}
+
+// Test hotkey function for debugging
+const testHotkey = async (action: string) => {
+  try {
+    await invoke('test_hotkey', { action })
+    console.log('Test hotkey triggered:', action)
+  } catch (error) {
+    console.error('Failed to test hotkey:', error)
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   await initOverlay()
   await getOverlayState()
+  await setupHotkeyListeners()
   
   // Poll for state changes
   statusInterval = setInterval(getOverlayState, 1000)
@@ -112,6 +162,9 @@ onUnmounted(() => {
   if (statusInterval) {
     clearInterval(statusInterval)
   }
+  
+  // Cleanup event listeners
+  unlistenFns.forEach(unlisten => unlisten())
 })
 </script>
 
@@ -178,6 +231,17 @@ onUnmounted(() => {
             <i class="fas" :class="overlayState.enabled ? 'fa-pause' : 'fa-play'"></i>
             {{ overlayState.enabled ? 'Disable' : 'Enable' }} Overlay
           </button>
+          
+          <!-- Test buttons for hotkeys -->
+          <div class="test-hotkeys" style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
+            <h4 style="margin: 0 0 10px 0; color: #666;">Test Hotkeys:</h4>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button @click="testHotkey('toggle_mic')" class="control-btn secondary">Test Mic Toggle</button>
+              <button @click="testHotkey('switch_monitor')" class="control-btn secondary">Test Monitor Switch</button>
+              <button @click="testHotkey('open_settings')" class="control-btn secondary">Test Settings</button>
+              <button @click="testHotkey('quit')" class="control-btn secondary">Test Quit</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -259,22 +323,21 @@ onUnmounted(() => {
 }
 
 .header-btn {
-  width: 40px;
-  height: 40px;
   border: none;
-  border-radius: 50%;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
   color: #333;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 80px;
-  padding: 6px 10px 4px 10px;
+  min-width: 100px;
+  min-height: 60px;
+  padding: 8px 12px;
+  box-sizing: border-box;
 }
 
 .header-btn:hover {
@@ -374,6 +437,18 @@ onUnmounted(() => {
   background: #1565c0;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+}
+
+.control-btn.secondary {
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.control-btn.secondary:hover {
+  background: #e0e0e0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Settings Modal */
@@ -512,21 +587,21 @@ onUnmounted(() => {
 .btn-content-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
 }
 .btn-action-text {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  margin-right: 8px;
 }
 .btn-shortcut {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   color: #888;
   font-family: 'Fira Mono', 'Consolas', monospace;
-  margin-top: 2px;
-  text-align: left;
+  margin-top: 4px;
+  text-align: center;
   width: 100%;
 }
 </style>

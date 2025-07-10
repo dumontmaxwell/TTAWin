@@ -4,7 +4,8 @@ members = [
     "winapp/src-tauri",
     "packages/win-sys",
     "packages/payments",
-    "packages/learning"
+    "packages/learning", 
+    "packages/windows"
 ]
 
 [workspace.dependencies]
