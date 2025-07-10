@@ -219,9 +219,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_mic_recorder::init())
-        .setup(move |app| {
+        .setup(|app| {
             // Start auto-kill timer as a dev plugin
-            auto_kill_init(Some(AutoKillConfig { timeout_secs }))(app.handle());
             let app_handle = app.handle();
             
             // Initialize hotkey manager
