@@ -1,4 +1,4 @@
-//! Error types for win-sys
+//! Error types for overlay management
 
 use thiserror::Error;
 
@@ -24,4 +24,4 @@ pub enum OverlayError {
     
     #[error("Overlay already disabled")]
     AlreadyDisabled,
-}
+} 

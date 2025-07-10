@@ -11,17 +11,14 @@ use windows::Win32::{
         GWL_EXSTYLE, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE, SW_HIDE, SW_SHOW,
         WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
         WM_DESTROY, WM_PAINT, WNDCLASSEXW, WNDCLASS_STYLES, WINDOW_STYLE,
+        GetWindowLongW,
     },
     Graphics::Gdi::{BeginPaint, EndPaint, PAINTSTRUCT},
     System::LibraryLoader::GetModuleHandleW,
     UI::WindowsAndMessaging::{SM_CXSCREEN, SM_CYSCREEN},
 };
 
-pub mod overlay;
-pub mod error;
-
-pub use overlay::*;
-pub use error::*;
+use crate::error::OverlayError;
 
 /// Global overlay state
 static OVERLAY_ENABLED: AtomicBool = AtomicBool::new(false);
@@ -153,7 +150,7 @@ pub fn disable_overlay() -> Result<OverlayState> {
     if let Some(window_handle) = *window_guard {
         unsafe {
             // Convert back to HWND for API calls
-            let hwnd = HWND(window_handle as *mut std::ffi::c_void);
+            let hwnd = HWND(window_handle);
             // Hide the overlay window
             let _ = ShowWindow(hwnd, SW_HIDE);
         }
@@ -205,9 +202,9 @@ fn create_overlay_window() -> Result<HWND> {
             None, // Menu
             GetModuleHandleW(None)?,
             None, // Additional data
-        )?;
+        );
         
-        if hwnd.0.is_null() {
+        if hwnd.0 == 0 {
             Err(OverlayError::WindowCreationFailed.into())
         } else {
             Ok(hwnd)
@@ -238,6 +235,48 @@ pub fn cleanup_overlay() -> Result<()> {
     Ok(())
 }
 
+/// Set window click-through behavior
+pub fn set_window_click_through(enabled: bool) -> Result<()> {
+    let window_guard = OVERLAY_WINDOW.lock().unwrap();
+    
+    if let Some(window_handle) = *window_guard {
+        unsafe {
+            let hwnd = HWND(window_handle);
+            let current_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+            
+            let new_style = if enabled {
+                // Add WS_EX_TRANSPARENT to make window click-through
+                current_style | WS_EX_TRANSPARENT.0 as i32
+            } else {
+                // Remove WS_EX_TRANSPARENT to make window clickable
+                current_style & !(WS_EX_TRANSPARENT.0 as i32)
+            };
+            
+            SetWindowLongW(hwnd, GWL_EXSTYLE, new_style);
+        }
+    }
+    
+    Ok(())
+}
+
+/// Get current window click-through state
+pub fn get_window_click_through() -> Result<bool> {
+    let window_guard = OVERLAY_WINDOW.lock().unwrap();
+    
+    if let Some(window_handle) = *window_guard {
+        unsafe {
+            let hwnd = HWND(window_handle);
+            let current_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+            
+            // Check if WS_EX_TRANSPARENT is set
+            Ok((current_style & WS_EX_TRANSPARENT.0 as i32) != 0)
+        }
+    } else {
+        // No overlay window exists, default to click-through enabled
+        Ok(true)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,4 +291,4 @@ mod tests {
     fn test_permissions() {
         assert!(check_overlay_permissions().is_ok());
     }
-}
+} 

@@ -1,10 +1,18 @@
 use std::sync::Arc;
+use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     RegisterHotKey, UnregisterHotKey, HOT_KEY_MODIFIERS, MOD_CONTROL, MOD_SHIFT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{DispatchMessageW, GetMessageW, MSG, WM_HOTKEY};
+
+#[derive(Serialize, Clone)]
+pub struct HotkeyEvent {
+    pub action: String,
+    pub timestamp: u64,
+    pub source: String,
+}
 
 pub struct HotkeyManager {
     app_handle: AppHandle,
@@ -97,8 +105,18 @@ impl HotkeyManager {
 
                             println!("Hotkey triggered: {} (ID: {})", action, hotkey_id);
                             
+                            // Create detailed event payload
+                            let event = HotkeyEvent {
+                                action: action.to_string(),
+                                timestamp: std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_millis() as u64,
+                                source: "hotkey".to_string(),
+                            };
+                            
                             // Emit event to frontend
-                            if let Err(e) = app_handle.emit("hotkey-triggered", action) {
+                            if let Err(e) = app_handle.emit("hotkey-triggered", event) {
                                 eprintln!("Failed to emit hotkey event: {}", e);
                             }
                         }

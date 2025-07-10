@@ -22,6 +22,7 @@ const overlayState = ref<OverlayState>({
 })
 
 const showSettings = ref(false)
+const clickThroughEnabled = ref(true)
 
 let statusInterval: number | null = null
 let unlistenFns: (() => void)[] = []
@@ -101,11 +102,23 @@ const SHORTCUTS = {
   quit: 'Ctrl+Shift+Q',
 }
 
-// Handle hotkey events from Rust
-const handleHotkeyEvent = async (event: any) => {
-  const { action } = event.payload
+// Unified action handler - used by both hotkeys and button clicks
+const executeAction = async (action: string) => {
+  console.log('Executing action:', action)
   
-  console.log('Hotkey triggered:', action)
+  // Send action to backend to trigger the event system
+  try {
+    await invoke('trigger_action', { action })
+  } catch (error) {
+    console.error('Failed to trigger action:', error)
+    // Fallback to direct execution if event system fails
+    await executeActionDirect(action)
+  }
+}
+
+// Direct action execution (fallback)
+const executeActionDirect = async (action: string) => {
+  console.log('Executing action directly:', action)
   
   switch (action) {
     case 'toggle_mic':
@@ -122,9 +135,65 @@ const handleHotkeyEvent = async (event: any) => {
     case 'quit':
       await closeOverlay()
       break
+    case 'toggle_overlay':
+      await toggleOverlay()
+      break
     default:
-      console.log('Unknown hotkey action:', action)
+      console.log('Unknown action:', action)
   }
+}
+
+// Handle hotkey events from Rust
+const handleHotkeyEvent = async (event: any) => {
+  const { action, timestamp, source } = event.payload
+  console.log('Hotkey triggered:', { action, timestamp, source })
+  
+  // Add visual feedback for hotkey triggers
+  if (source === 'hotkey') {
+    showHotkeyFeedback(action)
+  }
+  
+  // Execute the action directly since it came from the event system
+  await executeActionDirect(action)
+}
+
+// Visual feedback for hotkey triggers
+const showHotkeyFeedback = (action: string) => {
+  // Create a temporary visual indicator
+  const feedback = document.createElement('div')
+  feedback.className = 'hotkey-feedback'
+  feedback.textContent = `Hotkey: ${action}`
+  feedback.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(25, 118, 210, 0.9);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    z-index: 10002;
+    animation: fadeInOut 1.5s ease-in-out;
+  `
+  
+  // Add animation styles
+  const style = document.createElement('style')
+  style.textContent = `
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+      80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    }
+  `
+  document.head.appendChild(style)
+  document.body.appendChild(feedback)
+  
+  // Remove after animation
+  setTimeout(() => {
+    document.body.removeChild(feedback)
+  }, 1500)
 }
 
 // Setup hotkey listeners
@@ -148,11 +217,34 @@ const testHotkey = async (action: string) => {
   }
 }
 
+// Toggle click-through functionality
+const toggleClickThrough = async () => {
+  try {
+    await invoke('set_click_through', { enabled: clickThroughEnabled.value })
+    console.log('Click-through toggled:', clickThroughEnabled.value)
+  } catch (error) {
+    console.error('Failed to toggle click-through:', error)
+  }
+}
+
+// Initialize click-through state
+const initClickThrough = async () => {
+  try {
+    const response = await invoke('get_click_through')
+    if (response && typeof response === 'object' && 'data' in response) {
+      clickThroughEnabled.value = response.data as boolean
+    }
+  } catch (error) {
+    console.error('Failed to get click-through state:', error)
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   await initOverlay()
   await getOverlayState()
   await setupHotkeyListeners()
+  await initClickThrough()
   
   // Poll for state changes
   statusInterval = setInterval(getOverlayState, 1000)
@@ -175,7 +267,7 @@ onUnmounted(() => {
       <div class="header-buttons">
         <!-- Microphone Toggle Button -->
         <button
-          @click="toggleMic"
+          @click="executeAction('toggle_mic')"
           class="header-btn mic-btn"
           :class="micEnabled ? 'mic-on' : 'mic-off'"
           :title="micEnabled ? 'Microphone On' : 'Microphone Off'"
@@ -189,7 +281,7 @@ onUnmounted(() => {
         <!-- Monitor Switch Button (only if more than one monitor) -->
         <button
           v-if="monitors.length > 1"
-          @click="switchMonitor"
+          @click="executeAction('switch_monitor')"
           class="header-btn monitor-btn"
           title="Switch Monitor"
         >
@@ -200,14 +292,14 @@ onUnmounted(() => {
           </div>
           <div class="btn-shortcut">{{ SHORTCUTS.monitor }}</div>
         </button>
-        <button @click="openSettings" class="header-btn settings-btn" title="Settings">
+        <button @click="executeAction('open_settings')" class="header-btn settings-btn" title="Settings">
           <div class="btn-content-row">
             <span class="btn-action-text">Settings</span>
             <i class="fas fa-cog"></i>
           </div>
           <div class="btn-shortcut">{{ SHORTCUTS.settings }}</div>
         </button>
-        <button @click="closeOverlay" class="header-btn close-btn" title="Close">
+        <button @click="executeAction('quit')" class="header-btn close-btn" title="Close">
           <div class="btn-content-row">
             <span class="btn-action-text">Quit</span>
             <i class="fas fa-times"></i>
@@ -227,19 +319,25 @@ onUnmounted(() => {
         </div>
         
         <div class="overlay-controls">
-          <button @click="toggleOverlay" class="control-btn primary">
+          <button @click="executeAction('toggle_overlay')" class="control-btn primary">
             <i class="fas" :class="overlayState.enabled ? 'fa-pause' : 'fa-play'"></i>
             {{ overlayState.enabled ? 'Disable' : 'Enable' }} Overlay
+          </button>
+          
+          <!-- Developer Quit Button -->
+          <button @click="executeAction('quit')" class="control-btn quit-btn" style="margin-top: 15px; background: #dc3545; color: white; border: 2px solid #c82333;">
+            <i class="fas fa-power-off"></i>
+            Quit Application (Dev)
           </button>
           
           <!-- Test buttons for hotkeys -->
           <div class="test-hotkeys" style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.05); border-radius: 8px;">
             <h4 style="margin: 0 0 10px 0; color: #666;">Test Hotkeys:</h4>
             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-              <button @click="testHotkey('toggle_mic')" class="control-btn secondary">Test Mic Toggle</button>
-              <button @click="testHotkey('switch_monitor')" class="control-btn secondary">Test Monitor Switch</button>
-              <button @click="testHotkey('open_settings')" class="control-btn secondary">Test Settings</button>
-              <button @click="testHotkey('quit')" class="control-btn secondary">Test Quit</button>
+              <button @click="executeAction('toggle_mic')" class="control-btn secondary">Test Mic Toggle</button>
+              <button @click="executeAction('switch_monitor')" class="control-btn secondary">Test Monitor Switch</button>
+              <button @click="executeAction('open_settings')" class="control-btn secondary">Test Settings</button>
+              <button @click="executeAction('quit')" class="control-btn secondary">Test Quit</button>
             </div>
           </div>
         </div>
@@ -288,6 +386,10 @@ onUnmounted(() => {
             <div class="setting-item">
               <label>Always on Top:</label>
               <input type="checkbox" v-model="settingsStore.alwaysOnTop" />
+            </div>
+            <div class="setting-item">
+              <label>Click Through (Allow interaction with background apps):</label>
+              <input type="checkbox" v-model="clickThroughEnabled" @change="toggleClickThrough" />
             </div>
           </div>
         </div>
@@ -449,6 +551,19 @@ onUnmounted(() => {
   background: #e0e0e0;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.control-btn.quit-btn {
+  background: #dc3545;
+  color: white;
+  border: 2px solid #c82333;
+  font-weight: bold;
+}
+
+.control-btn.quit-btn:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
 }
 
 /* Settings Modal */

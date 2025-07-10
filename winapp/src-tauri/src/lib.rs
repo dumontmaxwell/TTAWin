@@ -1,8 +1,11 @@
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
-use win_sys::OverlayState;
 mod shortcuts;
+mod overlay;
+mod error;
+
 use shortcuts::HotkeyManager;
+use overlay::{OverlayState, set_window_click_through, get_window_click_through};
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,7 +36,7 @@ impl<T> ApiResponse<T> {
 /// Initialize the overlay system
 #[tauri::command]
 async fn init_overlay() -> ApiResponse<()> {
-    match win_sys::init_overlay() {
+    match overlay::init_overlay() {
         Ok(_) => ApiResponse::success(()),
         Err(e) => ApiResponse::error(format!("Failed to initialize overlay: {}", e)),
     }
@@ -42,7 +45,7 @@ async fn init_overlay() -> ApiResponse<()> {
 /// Enable the overlay
 #[tauri::command]
 async fn enable_overlay() -> ApiResponse<OverlayState> {
-    match win_sys::enable_overlay() {
+    match overlay::enable_overlay() {
         Ok(state) => ApiResponse::success(state),
         Err(e) => ApiResponse::error(format!("Failed to enable overlay: {}", e)),
     }
@@ -51,7 +54,7 @@ async fn enable_overlay() -> ApiResponse<OverlayState> {
 /// Disable the overlay
 #[tauri::command]
 async fn disable_overlay() -> ApiResponse<OverlayState> {
-    match win_sys::disable_overlay() {
+    match overlay::disable_overlay() {
         Ok(state) => ApiResponse::success(state),
         Err(e) => ApiResponse::error(format!("Failed to disable overlay: {}", e)),
     }
@@ -60,7 +63,7 @@ async fn disable_overlay() -> ApiResponse<OverlayState> {
 /// Toggle the overlay on/off
 #[tauri::command]
 async fn toggle_overlay() -> ApiResponse<OverlayState> {
-    match win_sys::toggle_overlay() {
+    match overlay::toggle_overlay() {
         Ok(state) => ApiResponse::success(state),
         Err(e) => ApiResponse::error(format!("Failed to toggle overlay: {}", e)),
     }
@@ -69,14 +72,14 @@ async fn toggle_overlay() -> ApiResponse<OverlayState> {
 /// Get current overlay state
 #[tauri::command]
 async fn get_overlay_state() -> ApiResponse<OverlayState> {
-    let state = win_sys::get_overlay_state();
+    let state = overlay::get_overlay_state();
     ApiResponse::success(state)
 }
 
 /// Check overlay permissions
 #[tauri::command]
 async fn check_overlay_permissions() -> ApiResponse<bool> {
-    match win_sys::check_overlay_permissions() {
+    match overlay::check_overlay_permissions() {
         Ok(has_permissions) => ApiResponse::success(has_permissions),
         Err(e) => ApiResponse::error(format!("Failed to check permissions: {}", e)),
     }
@@ -85,7 +88,7 @@ async fn check_overlay_permissions() -> ApiResponse<bool> {
 /// Cleanup overlay resources
 #[tauri::command]
 async fn cleanup_overlay(with_exit: bool) -> ApiResponse<()> {
-    match win_sys::cleanup_overlay() {
+    match overlay::cleanup_overlay() {
         Ok(_) => ApiResponse::success(()),
         Err(e) => ApiResponse::error(format!("Failed to cleanup overlay: {}", e)),
     };
@@ -138,10 +141,58 @@ async fn stop_audio_stream() -> ApiResponse<()> {
 /// Test hotkey trigger (for debugging)
 #[tauri::command]
 async fn test_hotkey(action: String, window: tauri::Window) -> ApiResponse<()> {
-    if let Err(e) = window.emit("hotkey-triggered", action) {
+    let event = shortcuts::HotkeyEvent {
+        action: action.clone(),
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+        source: "test".to_string(),
+    };
+    
+    if let Err(e) = window.emit("hotkey-triggered", event) {
         ApiResponse::error(format!("Failed to emit hotkey event: {}", e))
     } else {
         ApiResponse::success(())
+    }
+}
+
+/// Trigger action from frontend (for button clicks)
+#[tauri::command]
+async fn trigger_action(action: String, window: tauri::Window) -> ApiResponse<()> {
+    let event = shortcuts::HotkeyEvent {
+        action: action.clone(),
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64,
+        source: "button".to_string(),
+    };
+    
+    if let Err(e) = window.emit("hotkey-triggered", event) {
+        ApiResponse::error(format!("Failed to emit action event: {}", e))
+    } else {
+        ApiResponse::success(())
+    }
+}
+
+/// Set window click-through behavior
+#[tauri::command]
+async fn set_click_through(_window: tauri::Window, enabled: bool) -> ApiResponse<()> {
+    // Use overlay module to set click-through behavior
+    match set_window_click_through(enabled) {
+        Ok(_) => ApiResponse::success(()),
+        Err(e) => ApiResponse::error(format!("Failed to set click-through: {}", e)),
+    }
+}
+
+/// Get current click-through state
+#[tauri::command]
+async fn get_click_through(_window: tauri::Window) -> ApiResponse<bool> {
+    // Use overlay module to get click-through state
+    match get_window_click_through() {
+        Ok(enabled) => ApiResponse::success(enabled),
+        Err(e) => ApiResponse::error(format!("Failed to get click-through state: {}", e)),
     }
 }
 
@@ -183,7 +234,10 @@ pub fn run() {
             toggle_mic,
             start_audio_stream,
             stop_audio_stream,
-            test_hotkey
+            test_hotkey,
+            trigger_action,
+            set_click_through,
+            get_click_through
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
