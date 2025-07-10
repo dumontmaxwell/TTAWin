@@ -205,15 +205,15 @@ const setupHotkeyListeners = async () => {
   }
 }
 
-// Test hotkey function for debugging
-const testHotkey = async (action: string) => {
-  try {
-    await invoke('test_hotkey', { action })
-    console.log('Test hotkey triggered:', action)
-  } catch (error) {
-    console.error('Failed to test hotkey:', error)
-  }
-}
+// Test hotkey function for debugging (commented out to avoid unused variable warning)
+// const testHotkey = async (action: string) => {
+//   try {
+//     await invoke('test_hotkey', { action })
+//     console.log('Test hotkey triggered:', action)
+//   } catch (error) {
+//     console.error('Failed to test hotkey:', error)
+//   }
+// }
 
 // Toggle click-through functionality
 const toggleClickThrough = async () => {
@@ -323,7 +323,7 @@ onUnmounted(() => {
           </button>
           
           <!-- Developer Quit Button -->
-          <button @click="executeAction('quit')" class="control-btn quit-btn" style="margin-top: 15px; background: #dc3545; color: white; border: 2px solid #c82333;">
+          <button @click="executeAction('quit')" class="control-btn quit-btn" style="margin-top: 15px;">
             <i class="fas fa-power-off"></i>
             Quit Application (Dev)
           </button>
@@ -403,8 +403,8 @@ onUnmounted(() => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
   z-index: 9999;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -423,10 +423,10 @@ onUnmounted(() => {
 }
 
 .header-btn {
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  color: #333;
+  background: rgba(54, 57, 63, 0.95);
+  color: #E8E8E8;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -438,30 +438,34 @@ onUnmounted(() => {
   min-height: 60px;
   padding: 8px 12px;
   box-sizing: border-box;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .header-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: scale(1.05);
+  background: rgba(64, 68, 75, 0.95);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
 }
 
 .settings-btn:hover {
-  background: rgba(25, 118, 210, 0.9);
-  color: white;
+  background: rgba(64, 68, 75, 0.95);
+  color: #7289DA;
 }
 
 .close-btn {
-  background: rgba(193, 0, 21, 0.95);
-  color: white;
-  border: 2px solid #c10015;
+  background: rgba(54, 57, 63, 0.95);
+  color: #F04747;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: bold;
   transition: all 0.2s;
 }
 .close-btn:hover {
-  background: #fff;
-  color: #c10015;
-  border: 2px solid #c10015;
-  box-shadow: 0 0 0 2px #c1001533;
+  background: rgba(64, 68, 75, 0.95);
+  color: #F04747;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
 .overlay-content {
@@ -473,18 +477,19 @@ onUnmounted(() => {
 }
 
 .overlay-status {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(54, 57, 63, 0.95);
   padding: 40px;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(20px);
   text-align: center;
   min-width: 300px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .overlay-status h2 {
   margin: 0 0 20px 0;
-  color: #333;
+  color: #E8E8E8;
   font-size: 24px;
 }
 
@@ -496,14 +501,16 @@ onUnmounted(() => {
   margin: 20px 0;
   padding: 15px;
   border-radius: 8px;
-  background: rgba(193, 0, 21, 0.1);
-  color: #c10015;
+  background: rgba(54, 57, 63, 0.8);
+  color: #F04747;
   font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .status-indicator.active {
-  background: rgba(33, 186, 69, 0.1);
-  color: #21ba45;
+  background: rgba(64, 68, 75, 0.8);
+  color: #43B581;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .status-indicator i {
@@ -529,39 +536,46 @@ onUnmounted(() => {
 }
 
 .control-btn.primary {
-  background: #1976d2;
-  color: white;
+  background: rgba(54, 57, 63, 0.9);
+  color: #5865F2;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .control-btn.primary:hover {
-  background: #1565c0;
+  background: rgba(64, 68, 75, 0.9);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #7289DA;
 }
 
 .control-btn.secondary {
-  background: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
+  background: rgba(54, 57, 63, 0.9);
+  color: #C8C8C8;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .control-btn.secondary:hover {
-  background: #e0e0e0;
+  background: rgba(64, 68, 75, 0.9);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #E8E8E8;
 }
 
 .control-btn.quit-btn {
-  background: #dc3545;
-  color: white;
-  border: 2px solid #c82333;
+  background: rgba(54, 57, 63, 0.9);
+  color: #F04747;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   font-weight: bold;
 }
 
 .control-btn.quit-btn:hover {
-  background: #c82333;
+  background: rgba(64, 68, 75, 0.9);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #F04747;
 }
 
 /* Settings Modal */
@@ -579,13 +593,14 @@ onUnmounted(() => {
 }
 
 .settings-content {
-  background: white;
+  background: rgba(54, 57, 63, 0.98);
   border-radius: 16px;
   width: 90%;
   max-width: 500px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .settings-header {
@@ -593,12 +608,12 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .settings-header h3 {
   margin: 0;
-  color: #333;
+  color: #E8E8E8;
 }
 
 .settings-body {
@@ -611,7 +626,7 @@ onUnmounted(() => {
 
 .setting-group h4 {
   margin: 0 0 15px 0;
-  color: #333;
+  color: #E8E8E8;
   font-size: 18px;
 }
 
@@ -625,14 +640,16 @@ onUnmounted(() => {
 
 .setting-item label {
   font-weight: 500;
-  color: #555;
+  color: #C8C8C8;
 }
 
 .setting-item input[type="text"] {
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   font-size: 14px;
+  background: rgba(64, 68, 75, 0.8);
+  color: #E8E8E8;
 }
 
 .setting-item input[type="range"] {
@@ -654,41 +671,42 @@ onUnmounted(() => {
 
 .btn-secondary {
   padding: 10px 20px;
-  border: 1px solid #ddd;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
-  background: white;
-  color: #333;
+  background: rgba(54, 57, 63, 0.9);
+  color: #C8C8C8;
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 14px;
 }
 
 .btn-secondary:hover {
-  background: #f5f5f5;
-  border-color: #ccc;
+  background: rgba(64, 68, 75, 0.9);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #E8E8E8;
 }
 
 .mic-btn {
   position: relative;
 }
 .mic-on {
-  background: rgba(33, 186, 69, 0.9);
-  color: white;
+  background: rgba(54, 57, 63, 0.95);
+  color: #43B581;
 }
 .mic-off {
-  background: rgba(193, 0, 21, 0.9);
-  color: white;
+  background: rgba(54, 57, 63, 0.95);
+  color: #F04747;
 }
 .monitor-btn {
-  background: white;
-  color: #1976d2;
+  background: rgba(54, 57, 63, 0.95);
+  color: #5865F2;
   position: relative;
 }
 .monitor-btn .monitor-number {
   margin-left: 6px;
   position: static;
-  background: #1976d2;
-  color: white;
+  background: #5865F2;
+  color: #FFFFFF;
   border-radius: 50%;
   font-size: 12px;
   width: 18px;
@@ -711,10 +729,11 @@ onUnmounted(() => {
 .btn-shortcut {
   display: block;
   font-size: 10px;
-  color: #888;
+  color: #A8A8A8;
   font-family: 'Fira Mono', 'Consolas', monospace;
   margin-top: 4px;
   text-align: center;
   width: 100%;
+  font-weight: 500;
 }
 </style>

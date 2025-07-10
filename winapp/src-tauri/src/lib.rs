@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
-use tauri::Emitter;
+use tauri::{AppHandle, Emitter};
 mod shortcuts;
 mod overlay;
 mod error;
+mod auto_kill;
 
 use shortcuts::HotkeyManager;
 use overlay::{OverlayState, set_window_click_through, get_window_click_through};
+use auto_kill::{AutoKillConfig, init as auto_kill_init};
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -205,17 +207,21 @@ async fn quit_app(window: tauri::Window) -> ApiResponse<()> {
         eprintln!("Warning: Failed to cleanup overlay during quit: {}", e);
     }
     
-    // Close the window properly
-    window.close().unwrap();
-    ApiResponse::success(())
+    std::process::exit(0);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let timeout_secs = std::env::var("AUTO_KILL_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(10);
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_mic_recorder::init())
-        .setup(|app| {
+        .setup(move |app| {
+            // Start auto-kill timer as a dev plugin
+            auto_kill_init(Some(AutoKillConfig { timeout_secs }))(app.handle());
             let app_handle = app.handle();
             
             // Initialize hotkey manager

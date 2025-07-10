@@ -227,7 +227,7 @@ pub fn cleanup_overlay() -> Result<()> {
     unsafe {
         if WINDOW_CLASS_REGISTERED.load(Ordering::Relaxed) {
             let class_name = windows::core::w!("TTAWinOverlayClass");
-            let _ = unsafe { UnregisterClassW(class_name, GetModuleHandleW(None)?) };
+            let _ = UnregisterClassW(class_name, GetModuleHandleW(None)?);
             WINDOW_CLASS_REGISTERED.store(false, Ordering::Relaxed);
         }
     }

@@ -12,15 +12,24 @@
 // to match your app's branding.
 // Tip: Use the "Theme Builder" on Quasar's documentation website.
 
-$primary   : #1976D2;
-$secondary : #26A69A;
-$accent    : #9C27B0;
+// Discord and MS Teams inspired dark theme
+$primary   : #5865F2;  // Discord primary blue
+$secondary : #4752C4;  // Discord secondary blue
+$accent    : #7289DA;  // Discord accent blue
 
-$dark      : #1D1D1D;
+$dark      : #2C2F33;  // Discord dark gray
+$dark-page : #23272A;  // Discord darker gray
 
-$dark-page : #121212;
+$positive  : #43B581;  // Discord green
+$negative  : #F04747;  // Discord red
+$info      : #00B0F4;  // MS Teams blue
+$warning   : #FAA61A;  // Discord yellow
 
-$positive  : #21BA45;
-$negative  : #C10015;
-$info      : #31CCEC;
-$warning   : #F2C037; 
+// Additional theme variables for use in components
+$surface: #36393F;           // Discord surface gray
+$surface-hover: #40444B;     // Discord hover gray
+$text-primary: #FFFFFF;      // White text
+$text-secondary: #B9BBBE;    // Discord secondary text
+$text-muted: #72767D;        // Discord muted text
+$border: #202225;            // Discord border
+$shadow: rgba(0, 0, 0, 0.3); // Dark shadow 

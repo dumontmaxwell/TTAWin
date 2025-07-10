@@ -1,5 +1,4 @@
-import { ref, onMounted } from 'vue'
-import { invoke } from '@tauri-apps/api/core'
+import { onMounted } from 'vue'
 import { useSettingsStore } from '../stores/settingsStore'
 
 export function useSettings() {
