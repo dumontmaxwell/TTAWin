@@ -11,6 +11,13 @@ pub struct PaymentConfig {
     pub stripe_secret_key: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PricingTier {
+    pub name: String,
+    pub price: u64,
+    pub currency: String,
+}
+
 /// Payment request data
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PaymentRequest {
