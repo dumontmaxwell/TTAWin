@@ -1,0 +1,11 @@
+[workspace]
+resolver = "3"
+members = [
+    "winapp/src-tauri",
+    "packages/win-sys",
+    "packages/payments",
+    "packages/learning"
+]
+
+[workspace.dependencies]
+win-sys = { path = "packages/win-sys" }
