@@ -64,7 +64,7 @@ impl HotkeyManager {
 
         for &id in hotkeys.iter() {
             unsafe {
-                UnregisterHotKey(windows::Win32::Foundation::HWND(0), id);
+                let _ = UnregisterHotKey(windows::Win32::Foundation::HWND(0), id);
             }
         }
 

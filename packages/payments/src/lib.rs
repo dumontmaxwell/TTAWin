@@ -198,7 +198,7 @@ impl PaymentService {
                         StripePaymentStatus::Succeeded => ConfirmationStatus::Confirmed,
                         StripePaymentStatus::Canceled => ConfirmationStatus::Failed,
                         _ => ConfirmationStatus::Pending,
-                    })
+        })
                 } else {
                     Ok(ConfirmationStatus::Failed)
                 }

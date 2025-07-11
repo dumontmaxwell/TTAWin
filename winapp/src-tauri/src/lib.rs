@@ -1,14 +1,10 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::Emitter;
 mod shortcuts;
-mod overlay;
-mod error;
 mod auto_kill;
 
 use shortcuts::HotkeyManager;
-use overlay::{OverlayState, set_window_click_through, get_window_click_through};
-use auto_kill::{AutoKillConfig, init as auto_kill_init};
-
+use auto_kill::{AutoKillConfig, init as init_auto_kill};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
@@ -33,73 +29,6 @@ impl<T> ApiResponse<T> {
             error: Some(error),
         }
     }
-}
-
-/// Initialize the overlay system
-#[tauri::command]
-async fn init_overlay() -> ApiResponse<()> {
-    match overlay::init_overlay() {
-        Ok(_) => ApiResponse::success(()),
-        Err(e) => ApiResponse::error(format!("Failed to initialize overlay: {}", e)),
-    }
-}
-
-/// Enable the overlay
-#[tauri::command]
-async fn enable_overlay() -> ApiResponse<OverlayState> {
-    match overlay::enable_overlay() {
-        Ok(state) => ApiResponse::success(state),
-        Err(e) => ApiResponse::error(format!("Failed to enable overlay: {}", e)),
-    }
-}
-
-/// Disable the overlay
-#[tauri::command]
-async fn disable_overlay() -> ApiResponse<OverlayState> {
-    match overlay::disable_overlay() {
-        Ok(state) => ApiResponse::success(state),
-        Err(e) => ApiResponse::error(format!("Failed to disable overlay: {}", e)),
-    }
-}
-
-/// Toggle the overlay on/off
-#[tauri::command]
-async fn toggle_overlay() -> ApiResponse<OverlayState> {
-    match overlay::toggle_overlay() {
-        Ok(state) => ApiResponse::success(state),
-        Err(e) => ApiResponse::error(format!("Failed to toggle overlay: {}", e)),
-    }
-}
-
-/// Get current overlay state
-#[tauri::command]
-async fn get_overlay_state() -> ApiResponse<OverlayState> {
-    let state = overlay::get_overlay_state();
-    ApiResponse::success(state)
-}
-
-/// Check overlay permissions
-#[tauri::command]
-async fn check_overlay_permissions() -> ApiResponse<bool> {
-    match overlay::check_overlay_permissions() {
-        Ok(has_permissions) => ApiResponse::success(has_permissions),
-        Err(e) => ApiResponse::error(format!("Failed to check permissions: {}", e)),
-    }
-}
-
-/// Cleanup overlay resources
-#[tauri::command]
-async fn cleanup_overlay(with_exit: bool, window: tauri::Window) -> ApiResponse<()> {
-    match overlay::cleanup_overlay() {
-        Ok(_) => ApiResponse::success(()),
-        Err(e) => ApiResponse::error(format!("Failed to cleanup overlay: {}", e)),
-    };
-
-    if with_exit {
-        // Use Tauri's proper exit mechanism instead of std::process::exit
-        window.close().unwrap();
-    }
-    ApiResponse::success(())
 }
 
 #[tauri::command]
@@ -179,51 +108,73 @@ async fn trigger_action(action: String, window: tauri::Window) -> ApiResponse<()
     }
 }
 
-/// Set window click-through behavior
+/// Open settings window
 #[tauri::command]
-async fn set_click_through(_window: tauri::Window, enabled: bool) -> ApiResponse<()> {
-    // Use overlay module to set click-through behavior
-    match set_window_click_through(enabled) {
-        Ok(_) => ApiResponse::success(()),
-        Err(e) => ApiResponse::error(format!("Failed to set click-through: {}", e)),
-    }
+async fn open_settings_window(window: tauri::Window) -> ApiResponse<()> {
+    // For now, just log the action - we'll implement proper window management later
+    println!("Opening settings window from window: {}", window.label());
+    ApiResponse::success(())
 }
 
-/// Get current click-through state
+/// Close settings window
 #[tauri::command]
-async fn get_click_through(_window: tauri::Window) -> ApiResponse<bool> {
-    // Use overlay module to get click-through state
-    match get_window_click_through() {
-        Ok(enabled) => ApiResponse::success(enabled),
-        Err(e) => ApiResponse::error(format!("Failed to get click-through state: {}", e)),
-    }
+async fn close_settings_window(window: tauri::Window) -> ApiResponse<()> {
+    // For now, just log the action - we'll implement proper window management later
+    println!("Closing settings window from window: {}", window.label());
+    ApiResponse::success(())
 }
 
 /// Quit the application properly
 #[tauri::command]
-async fn quit_app(window: tauri::Window) -> ApiResponse<()> {
-    // Cleanup overlay resources first
-    if let Err(e) = overlay::cleanup_overlay() {
-        eprintln!("Warning: Failed to cleanup overlay during quit: {}", e);
-    }
-    
+async fn quit_app(_window: tauri::Window) -> ApiResponse<()> {
     std::process::exit(0);
+}
+
+#[cfg(target_os = "windows")]
+fn set_click_through_impl(window: &tauri::Window, enabled: bool) -> Result<(), String> {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongW, SetWindowLongW, GWL_EXSTYLE, WS_EX_TRANSPARENT};
+    use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+
+    let hwnd = match window.raw_window_handle() {
+        RawWindowHandle::Win32(handle) => HWND(handle.hwnd as isize),
+        _ => return Err("Not a Win32 window".to_string()),
+    };
+    unsafe {
+        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
+        let new_style = if enabled {
+            ex_style | WS_EX_TRANSPARENT.0 as i32
+        } else {
+            ex_style & !(WS_EX_TRANSPARENT.0 as i32)
+        };
+        SetWindowLongW(hwnd, GWL_EXSTYLE, new_style);
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_click_through_impl(_window: &tauri::Window, _enabled: bool) -> Result<(), String> {
+    Ok(())
+}
+
+#[tauri::command]
+fn set_click_through(window: tauri::Window, enabled: bool) -> Result<(), String> {
+    set_click_through_impl(&window, enabled)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let timeout_secs = std::env::var("AUTO_KILL_TIMEOUT_SECS")
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(10);
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_mic_recorder::init())
         .setup(|app| {
-            // Start auto-kill timer as a dev plugin
-            let app_handle = app.handle();
+            // Start auto-kill timer with 5 second timeout
+            let auto_kill_config = AutoKillConfig { timeout_secs: 5 };
+            let auto_kill_fn = init_auto_kill(Some(auto_kill_config));
+            auto_kill_fn(&app.handle());
             
             // Initialize hotkey manager
+            let app_handle = app.handle();
             let hotkey_manager = HotkeyManager::new(app_handle.clone());
             
             // Register hotkeys and start listener using Tauri's runtime
@@ -240,13 +191,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            init_overlay,
-            enable_overlay,
-            disable_overlay,
-            toggle_overlay,
-            get_overlay_state,
-            check_overlay_permissions,
-            cleanup_overlay,
             get_monitors,
             switch_monitor,
             get_mic_state,
@@ -255,9 +199,10 @@ pub fn run() {
             stop_audio_stream,
             test_hotkey,
             trigger_action,
-            set_click_through,
-            get_click_through,
-            quit_app
+            open_settings_window,
+            close_settings_window,
+            quit_app,
+            set_click_through
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,7 +1,6 @@
-use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 pub struct AutoKillConfig {
     pub timeout_secs: u64,
