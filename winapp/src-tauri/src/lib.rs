@@ -1,4 +1,4 @@
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 mod shortcuts;
 mod streams;
 mod api_response;
@@ -82,24 +82,24 @@ async fn quit_app(app_handle: tauri::AppHandle) {
 #[tauri::command]
 fn set_click_through(window: tauri::Window, enabled: bool) -> Result<(), String> {
     unsafe {
-        let hwnd = window.hwnd().unwrap().0;
+        let hwnd = HWND(window.hwnd().unwrap().0 as isize);
         
         if enabled {
             // Enable click-through: make window transparent to mouse events
-            let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+            let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
             SetWindowLongPtrW(
-                HWND(hwnd),
+                hwnd,
                 GWL_EXSTYLE,
                 (ex_style | WS_EX_LAYERED.0 | WS_EX_TRANSPARENT.0) as isize,
             );
             
             // Set window to be transparent but still visible
-            SetLayeredWindowAttributes(HWND(hwnd), COLORREF(0), 255, LWA_ALPHA);
+            SetLayeredWindowAttributes(hwnd, COLORREF(0), 255, LWA_ALPHA);
         } else {
             // Disable click-through: make window interactive (for security)
-            let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+            let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
             SetWindowLongPtrW(
-                HWND(hwnd),
+                hwnd,
                 GWL_EXSTYLE,
                 (ex_style & !WS_EX_TRANSPARENT.0) as isize,
             );
@@ -112,34 +112,34 @@ fn set_click_through(window: tauri::Window, enabled: bool) -> Result<(), String>
 #[tauri::command]
 fn set_overlay_hidden(window: tauri::Window) -> Result<(), String> {
     unsafe {
-        let hwnd = window.hwnd().unwrap().0;
+        let hwnd = HWND(window.hwnd().unwrap().0 as isize);
         
         // Show window but make it mostly transparent
-        ShowWindow(HWND(hwnd), SW_SHOW);
+        ShowWindow(hwnd, SW_SHOW);
         
         // Set to topmost
         SetWindowPos(
-            HWND(hwnd),
+            hwnd,
             HWND_TOPMOST,
             0, 0, 0, 0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
         );
         
         // Enable layered window for transparency
-        let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
         SetWindowLongPtrW(
-            HWND(hwnd),
+            hwnd,
             GWL_EXSTYLE,
             (ex_style | WS_EX_LAYERED.0) as isize,
         );
         
         // Set transparency - very low alpha so only controls are visible
-        SetLayeredWindowAttributes(HWND(hwnd), COLORREF(0), 30, LWA_ALPHA);
+        SetLayeredWindowAttributes(hwnd, COLORREF(0), 30, LWA_ALPHA);
         
         // Enable click-through for middle area (will be handled by CSS)
-        let ex_style_click = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        let ex_style_click = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
         SetWindowLongPtrW(
-            HWND(hwnd),
+            hwnd,
             GWL_EXSTYLE,
             (ex_style_click | WS_EX_TRANSPARENT.0) as isize,
         );
@@ -151,34 +151,34 @@ fn set_overlay_hidden(window: tauri::Window) -> Result<(), String> {
 #[tauri::command]
 fn set_overlay_visible(window: tauri::Window) -> Result<(), String> {
     unsafe {
-        let hwnd = window.hwnd().unwrap().0;
+        let hwnd = HWND(window.hwnd().unwrap().0 as isize);
         
         // Show window
-        ShowWindow(HWND(hwnd), SW_SHOW);
+        ShowWindow(hwnd, SW_SHOW);
         
         // Set to topmost
         SetWindowPos(
-            HWND(hwnd),
+            hwnd,
             HWND_TOPMOST,
             0, 0, 0, 0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
         );
         
         // Enable layered window for transparency
-        let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
         SetWindowLongPtrW(
-            HWND(hwnd),
+            hwnd,
             GWL_EXSTYLE,
             (ex_style | WS_EX_LAYERED.0) as isize,
         );
         
         // Set transparency to allow background visibility but maintain security
-        SetLayeredWindowAttributes(HWND(hwnd), COLORREF(0), 180, LWA_ALPHA);
+        SetLayeredWindowAttributes(hwnd, COLORREF(0), 180, LWA_ALPHA);
         
         // DISABLE click-through for security - prevent clicks from reaching background
-        let ex_style_click = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        let ex_style_click = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
         SetWindowLongPtrW(
-            HWND(hwnd),
+            hwnd,
             GWL_EXSTYLE,
             (ex_style_click & !WS_EX_TRANSPARENT.0) as isize,
         );
@@ -190,8 +190,8 @@ fn set_overlay_visible(window: tauri::Window) -> Result<(), String> {
 #[tauri::command]
 fn toggle_overlay(window: tauri::Window) -> Result<ApiResponse<bool>, String> {
     unsafe {
-        let hwnd = window.hwnd().unwrap().0;
-        let is_visible = ShowWindow(HWND(hwnd), SW_SHOW).as_bool();
+        let hwnd = HWND(window.hwnd().unwrap().0 as isize);
+        let is_visible = ShowWindow(hwnd, SW_SHOW).as_bool();
         
         if is_visible {
             // Switch to hidden state
@@ -207,32 +207,37 @@ fn toggle_overlay(window: tauri::Window) -> Result<ApiResponse<bool>, String> {
 
 /// Set overlay to full screen and properly configured
 #[tauri::command]
-fn setup_overlay(window: tauri::Window) -> Result<(), String> {
+fn setup_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
     unsafe {
-        let hwnd = window.hwnd().unwrap().0;
+        let hwnd = HWND(window.hwnd().unwrap().0 as isize);
         
         // Get screen dimensions
         let screen_width = GetSystemMetrics(SM_CXSCREEN);
         let screen_height = GetSystemMetrics(SM_CYSCREEN);
         
         // Set window to full screen
-        SetWindowPos(
-            HWND(hwnd),
+        if let Err(e) = SetWindowPos(
+            hwnd,
             HWND_TOPMOST,
             0, 0, screen_width, screen_height,
             SWP_SHOWWINDOW,
-        );
+        ) {
+            eprintln!("Failed to set window position: {}", e);
+            return Err(e.to_string());
+        }
         
         // Enable layered window for transparency
-        let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
         SetWindowLongPtrW(
-            HWND(hwnd),
+            hwnd,
             GWL_EXSTYLE,
             (ex_style | WS_EX_LAYERED.0) as isize,
         );
         
         // Set initial transparency (fully transparent)
-        SetLayeredWindowAttributes(HWND(hwnd), COLORREF(0), 0, LWA_ALPHA);
+        if let Err(e) = SetLayeredWindowAttributes(hwnd, COLORREF(0), 0, LWA_ALPHA) {
+            eprintln!("Failed to set layered window attributes: {}", e);
+        }
     }
     Ok(())
 }
@@ -247,8 +252,8 @@ fn show_overlay(window: tauri::Window) -> Result<(), String> {
 #[tauri::command]
 fn hide_overlay(window: tauri::Window) -> Result<(), String> {
     unsafe {
-        let hwnd = window.hwnd().unwrap().0;
-        ShowWindow(HWND(hwnd), SW_HIDE);
+        let hwnd = HWND(window.hwnd().unwrap().0 as isize);
+        ShowWindow(hwnd, SW_HIDE);
     }
     Ok(())
 }
@@ -271,12 +276,9 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle();
             let hotkey_manager = HotkeyManager::new(app_handle.clone());
-            
-            // Setup overlay for main window
+
             if let Some(window) = app.get_webview_window("main") {
-                if let Err(e) = setup_overlay(window) {
-                    eprintln!("Failed to setup overlay: {}", e);
-                }
+                let _ = setup_overlay(window);
             }
             
             tauri::async_runtime::spawn(async move {
