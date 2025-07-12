@@ -157,12 +157,15 @@ fn set_overlay_visible(window: tauri::Window) -> Result<(), String> {
         ShowWindow(hwnd, SW_SHOW);
         
         // Set to topmost
-        SetWindowPos(
+        if let Err(e) = SetWindowPos(
             hwnd,
             HWND_TOPMOST,
             0, 0, 0, 0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
-        );
+        ) {
+            eprintln!("Failed to set window position: {}", e);
+            return Err(e.to_string());
+        }
         
         // Enable layered window for transparency
         let ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
@@ -173,7 +176,10 @@ fn set_overlay_visible(window: tauri::Window) -> Result<(), String> {
         );
         
         // Set transparency to allow background visibility but maintain security
-        SetLayeredWindowAttributes(hwnd, COLORREF(0), 180, LWA_ALPHA);
+        if let Err(e) = SetLayeredWindowAttributes(hwnd, COLORREF(0), 180, LWA_ALPHA) {
+            eprintln!("Failed to set layered window attributes: {}", e);
+            return Err(e.to_string());
+        }
         
         // DISABLE click-through for security - prevent clicks from reaching background
         let ex_style_click = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
@@ -234,10 +240,13 @@ fn setup_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
             (ex_style | WS_EX_LAYERED.0) as isize,
         );
         
-        // Set initial transparency (fully transparent)
-        if let Err(e) = SetLayeredWindowAttributes(hwnd, COLORREF(0), 0, LWA_ALPHA) {
+        // Set initial transparency - show controls but allow click-through
+        if let Err(e) = SetLayeredWindowAttributes(hwnd, COLORREF(0), 30, LWA_ALPHA) {
             eprintln!("Failed to set layered window attributes: {}", e);
         }
+        
+        // Show the window
+        ShowWindow(hwnd, SW_SHOW);
     }
     Ok(())
 }
@@ -274,6 +283,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_mic_recorder::init())
         .setup(|app| {
+            eprintln!("Setting up overlay");
             let app_handle = app.handle();
             let hotkey_manager = HotkeyManager::new(app_handle.clone());
 
@@ -293,7 +303,6 @@ pub fn run() {
             
             Ok(())
         })
-        .manage(AudioStream::default())
         .invoke_handler(tauri::generate_handler![
             get_monitors,
             switch_monitor,

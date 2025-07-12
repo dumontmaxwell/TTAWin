@@ -127,8 +127,7 @@ const preventBackgroundClicks = (event: Event) => {
 let unlistenFn: (() => void) | null = null;
 
 onMounted(async () => {
-  // Initialize overlay as hidden and load monitors
-  await setOverlayHidden()
+  // Initialize overlay as visible with controls and load monitors
   await overlayStore.loadMonitors()
   setClickThrough(true)
   unlistenFn = await listen('hotkey-triggered', handleHotkeyEvent)

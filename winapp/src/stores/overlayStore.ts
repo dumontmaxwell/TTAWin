@@ -5,7 +5,7 @@ export const useOverlayStore = defineStore('overlay', () => {
   const micEnabled = ref(false)
   const monitors = ref<string[]>([])
   const currentMonitorIndex = ref(0)
-  const overlayVisible = ref(false)
+  const overlayVisible = ref(true)
 
   const toggleMic = async () => {
     try {
