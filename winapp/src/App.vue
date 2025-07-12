@@ -75,6 +75,7 @@ const quitApp = async () => {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     await invoke('quit_app')
+    console.log('Quit command sent successfully')
   } catch (error) {
     console.error('Failed to quit app:', error)
   }
@@ -118,6 +119,12 @@ const handleHotkeyEvent = async (event: any) => {
 
 // Prevent clicks from reaching background when overlay is active
 const preventBackgroundClicks = (event: Event) => {
+  // Don't prevent clicks on our own controls
+  const target = event.target as HTMLElement;
+  if (target.closest('.developer-controls') || target.closest('.developer-panel') || target.closest('.settings-modal')) {
+    return;
+  }
+  
   if (overlayVisible.value || showSettings.value) {
     event.preventDefault();
     event.stopPropagation();
@@ -155,7 +162,7 @@ onUnmounted(() => {
   }">
     
     <!-- Developer Controls Bar (Top Right) - Always visible in hidden mode -->
-    <div class="developer-controls" :class="{ 'always-visible': !overlayVisible }">
+    <div class="developer-controls" :class="{ 'always-visible': !overlayVisible }" style="pointer-events: auto;">
       <button @click="overlayStore.toggleMic()" class="dev-btn mic-btn" :class="micEnabled ? 'mic-on' : 'mic-off'" :title="micEnabled ? 'Microphone On' : 'Microphone Off'">
         <i class="fas" :class="micEnabled ? 'fa-microphone' : 'fa-microphone-slash'"></i>
         <span class="dev-btn-text">{{ micEnabled ? 'Mute' : 'Unmute' }}</span>
@@ -350,7 +357,7 @@ onUnmounted(() => {
   display: flex;
   gap: 12px;
   z-index: 10000;
-  pointer-events: auto;
+  pointer-events: auto !important;
   transition: opacity 0.3s ease;
 }
 
@@ -379,6 +386,7 @@ onUnmounted(() => {
   font-weight: 500;
   min-width: 80px;
   justify-content: center;
+  pointer-events: auto !important;
 }
 
 .dev-btn:hover {
