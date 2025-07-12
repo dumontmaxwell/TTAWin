@@ -75,9 +75,12 @@ const quitApp = async () => {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     await invoke('quit_app')
-    console.log('Quit command sent successfully')
+    console.log('Quit command sent successfully - app should terminate')
   } catch (error) {
     console.error('Failed to quit app:', error)
+    // Force quit as fallback
+    console.log('Using fallback quit method')
+    window.close()
   }
 }
 
@@ -121,11 +124,21 @@ const handleHotkeyEvent = async (event: any) => {
 const preventBackgroundClicks = (event: Event) => {
   // Don't prevent clicks on our own controls
   const target = event.target as HTMLElement;
-  if (target.closest('.developer-controls') || target.closest('.developer-panel') || target.closest('.settings-modal')) {
+  if (target.closest('.developer-controls') || target.closest('.developer-panel') || target.closest('.settings-modal') || target.closest('.dev-btn')) {
     return;
   }
   
-  if (overlayVisible.value || showSettings.value) {
+  // Only prevent clicks in the middle area when in hidden mode
+  if (!overlayVisible.value && !showSettings.value) {
+    const rect = target.getBoundingClientRect();
+    const clickY = (event as MouseEvent).clientY;
+    
+    // Allow clicks in top 80px (where controls are)
+    if (clickY < 80) {
+      return;
+    }
+    
+    // Prevent clicks in middle area
     event.preventDefault();
     event.stopPropagation();
   }
@@ -143,6 +156,8 @@ onMounted(async () => {
   document.addEventListener('click', preventBackgroundClicks, true)
   document.addEventListener('mousedown', preventBackgroundClicks, true)
   document.addEventListener('mouseup', preventBackgroundClicks, true)
+  
+  console.log('Overlay mounted - controls should be interactive')
 })
 
 onUnmounted(() => {
@@ -162,18 +177,18 @@ onUnmounted(() => {
   }">
     
     <!-- Developer Controls Bar (Top Right) - Always visible in hidden mode -->
-    <div class="developer-controls" :class="{ 'always-visible': !overlayVisible }" style="pointer-events: auto;">
-      <button @click="overlayStore.toggleMic()" class="dev-btn mic-btn" :class="micEnabled ? 'mic-on' : 'mic-off'" :title="micEnabled ? 'Microphone On' : 'Microphone Off'">
+    <div class="developer-controls" :class="{ 'always-visible': !overlayVisible }" style="pointer-events: auto; z-index: 10001;">
+      <button @click="() => { console.log('Mic button clicked'); overlayStore.toggleMic(); }" class="dev-btn mic-btn" :class="micEnabled ? 'mic-on' : 'mic-off'" :title="micEnabled ? 'Microphone On' : 'Microphone Off'">
         <i class="fas" :class="micEnabled ? 'fa-microphone' : 'fa-microphone-slash'"></i>
         <span class="dev-btn-text">{{ micEnabled ? 'Mute' : 'Unmute' }}</span>
       </button>
       
-      <button @click="openSettings()" class="dev-btn settings-btn" title="Settings">
+      <button @click="() => { console.log('Settings button clicked'); openSettings(); }" class="dev-btn settings-btn" title="Settings">
         <i class="fas fa-cog"></i>
         <span class="dev-btn-text">Settings</span>
       </button>
       
-      <button @click="quitApp()" class="dev-btn quit-btn" title="Quit Application">
+      <button @click="() => { console.log('Quit button clicked'); quitApp(); }" class="dev-btn quit-btn" title="Quit Application">
         <i class="fas fa-times"></i>
         <span class="dev-btn-text">Quit</span>
       </button>
@@ -356,7 +371,7 @@ onUnmounted(() => {
   right: 20px;
   display: flex;
   gap: 12px;
-  z-index: 10000;
+  z-index: 10001 !important;
   pointer-events: auto !important;
   transition: opacity 0.3s ease;
 }
@@ -387,6 +402,7 @@ onUnmounted(() => {
   min-width: 80px;
   justify-content: center;
   pointer-events: auto !important;
+  z-index: 10002 !important;
 }
 
 .dev-btn:hover {

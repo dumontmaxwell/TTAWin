@@ -2,6 +2,7 @@ use tauri::{Emitter, Manager};
 mod shortcuts;
 mod streams;
 mod api_response;
+mod task;
 
 use api_response::ApiResponse;
 use shortcuts::HotkeyManager;
@@ -18,6 +19,7 @@ use windows::Win32::Foundation::{HWND, RECT, POINT, COLORREF};
 use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_CONTROL;
 use windows::Win32::UI::Input::KeyboardAndMouse::VK_SHIFT;
+
 
 #[tauri::command]
 async fn get_monitors(window: tauri::Window) -> ApiResponse<Vec<String>> {
@@ -75,7 +77,7 @@ async fn trigger_action(action: String, window: tauri::Window) -> ApiResponse<()
 
 #[tauri::command]
 async fn quit_app(app_handle: tauri::AppHandle) {
-    app_handle.exit(0);
+    task::terminate_app(app_handle).await;
 }
 
 /// Windows-specific click-through implementation with security
@@ -240,13 +242,10 @@ fn setup_overlay(window: tauri::WebviewWindow) -> Result<(), String> {
             (ex_style | WS_EX_LAYERED.0) as isize,
         );
         
-        // Set initial transparency - show controls but allow click-through
-        if let Err(e) = SetLayeredWindowAttributes(hwnd, COLORREF(0), 30, LWA_ALPHA) {
+        // Set initial transparency (fully transparent)
+        if let Err(e) = SetLayeredWindowAttributes(hwnd, COLORREF(0), 0, LWA_ALPHA) {
             eprintln!("Failed to set layered window attributes: {}", e);
         }
-        
-        // Show the window
-        ShowWindow(hwnd, SW_SHOW);
     }
     Ok(())
 }
