@@ -1,40 +1,32 @@
-use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 mod shortcuts;
-mod auto_kill;
+mod streams;
+mod api_response;
 
+use api_response::ApiResponse;
 use shortcuts::HotkeyManager;
-use auto_kill::{AutoKillConfig, init as init_auto_kill};
+use streams::AudioStream;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ApiResponse<T> {
-    pub success: bool,
-    pub data: Option<T>,
-    pub error: Option<String>,
-}
-
-impl<T> ApiResponse<T> {
-    fn success(data: T) -> Self {
-        Self {
-            success: true,
-            data: Some(data),
-            error: None,
-        }
-    }
-
-    fn error(error: String) -> Self {
-        Self {
-            success: false,
-            data: None,
-            error: Some(error),
-        }
-    }
-}
+// Windows-specific imports for overlay functionality
+use windows::Win32::UI::WindowsAndMessaging::{
+    SetWindowLongPtrW, GetWindowLongPtrW, GWL_EXSTYLE, WS_EX_LAYERED, WS_EX_TRANSPARENT,
+    SetLayeredWindowAttributes, LWA_ALPHA, LWA_COLORKEY, GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN,
+    SetWindowPos, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW, SWP_HIDEWINDOW,
+    ShowWindow, SW_SHOW, SW_HIDE
+};
+use windows::Win32::Foundation::{HWND, RECT, POINT, COLORREF};
+use windows::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_CONTROL;
+use windows::Win32::UI::Input::KeyboardAndMouse::VK_SHIFT;
 
 #[tauri::command]
-async fn get_monitors(window: tauri::Window) -> ApiResponse<usize> {
-    let monitors = window.available_monitors().unwrap().len();
-    ApiResponse::success(monitors)
+async fn get_monitors(window: tauri::Window) -> ApiResponse<Vec<String>> {
+    let monitors = window.available_monitors().unwrap();
+    let monitor_names: Vec<String> = monitors.iter()
+        .enumerate()
+        .map(|(i, _)| format!("Monitor {}", i + 1))
+        .collect();
+    ApiResponse::success(monitor_names)
 }
 
 #[tauri::command]
@@ -44,33 +36,6 @@ async fn switch_monitor(window: tauri::Window, current_index: usize) -> ApiRespo
     ApiResponse::success(next_index)
 }
 
-#[tauri::command]
-async fn get_mic_state() -> ApiResponse<bool> {
-    // For now, return true as mic is available
-    // TODO: Integrate with mic-recorder plugin for actual state
-    ApiResponse::success(true)
-}
-
-#[tauri::command]
-async fn toggle_mic(current: bool) -> ApiResponse<bool> {
-    // TODO: Integrate with mic-recorder plugin to start/stop recording
-    ApiResponse::success(!current)
-}
-
-#[tauri::command]
-async fn start_audio_stream() -> ApiResponse<()> {
-    // TODO: Use mic-recorder plugin to start audio streaming
-    // This will be integrated with your transcription system
-    ApiResponse::success(())
-}
-
-#[tauri::command]
-async fn stop_audio_stream() -> ApiResponse<()> {
-    // TODO: Use mic-recorder plugin to stop audio streaming
-    ApiResponse::success(())
-}
-
-/// Test hotkey trigger (for debugging)
 #[tauri::command]
 async fn test_hotkey(action: String, window: tauri::Window) -> ApiResponse<()> {
     let event = shortcuts::HotkeyEvent {
@@ -108,58 +73,194 @@ async fn trigger_action(action: String, window: tauri::Window) -> ApiResponse<()
     }
 }
 
-/// Open settings window
 #[tauri::command]
-async fn open_settings_window(window: tauri::Window) -> ApiResponse<()> {
-    // For now, just log the action - we'll implement proper window management later
-    println!("Opening settings window from window: {}", window.label());
-    ApiResponse::success(())
+async fn quit_app(app_handle: tauri::AppHandle) {
+    app_handle.exit(0);
 }
 
-/// Close settings window
+/// Windows-specific click-through implementation with security
 #[tauri::command]
-async fn close_settings_window(window: tauri::Window) -> ApiResponse<()> {
-    // For now, just log the action - we'll implement proper window management later
-    println!("Closing settings window from window: {}", window.label());
-    ApiResponse::success(())
-}
-
-/// Quit the application properly
-#[tauri::command]
-async fn quit_app(_window: tauri::Window) -> ApiResponse<()> {
-    std::process::exit(0);
-}
-
-#[cfg(target_os = "windows")]
-fn set_click_through_impl(window: &tauri::Window, enabled: bool) -> Result<(), String> {
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::{GetWindowLongW, SetWindowLongW, GWL_EXSTYLE, WS_EX_TRANSPARENT};
-    use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-
-    let hwnd = match window.raw_window_handle() {
-        RawWindowHandle::Win32(handle) => HWND(handle.hwnd as isize),
-        _ => return Err("Not a Win32 window".to_string()),
-    };
+fn set_click_through(window: tauri::Window, enabled: bool) -> Result<(), String> {
     unsafe {
-        let ex_style = GetWindowLongW(hwnd, GWL_EXSTYLE);
-        let new_style = if enabled {
-            ex_style | WS_EX_TRANSPARENT.0 as i32
+        let hwnd = window.hwnd().unwrap().0;
+        
+        if enabled {
+            // Enable click-through: make window transparent to mouse events
+            let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+            SetWindowLongPtrW(
+                HWND(hwnd),
+                GWL_EXSTYLE,
+                (ex_style | WS_EX_LAYERED.0 | WS_EX_TRANSPARENT.0) as isize,
+            );
+            
+            // Set window to be transparent but still visible
+            SetLayeredWindowAttributes(HWND(hwnd), COLORREF(0), 255, LWA_ALPHA);
         } else {
-            ex_style & !(WS_EX_TRANSPARENT.0 as i32)
-        };
-        SetWindowLongW(hwnd, GWL_EXSTYLE, new_style);
+            // Disable click-through: make window interactive (for security)
+            let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+            SetWindowLongPtrW(
+                HWND(hwnd),
+                GWL_EXSTYLE,
+                (ex_style & !WS_EX_TRANSPARENT.0) as isize,
+            );
+        }
     }
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
-fn set_click_through_impl(_window: &tauri::Window, _enabled: bool) -> Result<(), String> {
+/// Set overlay to "hidden" state - only top-right controls visible, middle click-through
+#[tauri::command]
+fn set_overlay_hidden(window: tauri::Window) -> Result<(), String> {
+    unsafe {
+        let hwnd = window.hwnd().unwrap().0;
+        
+        // Show window but make it mostly transparent
+        ShowWindow(HWND(hwnd), SW_SHOW);
+        
+        // Set to topmost
+        SetWindowPos(
+            HWND(hwnd),
+            HWND_TOPMOST,
+            0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+        );
+        
+        // Enable layered window for transparency
+        let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        SetWindowLongPtrW(
+            HWND(hwnd),
+            GWL_EXSTYLE,
+            (ex_style | WS_EX_LAYERED.0) as isize,
+        );
+        
+        // Set transparency - very low alpha so only controls are visible
+        SetLayeredWindowAttributes(HWND(hwnd), COLORREF(0), 30, LWA_ALPHA);
+        
+        // Enable click-through for middle area (will be handled by CSS)
+        let ex_style_click = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        SetWindowLongPtrW(
+            HWND(hwnd),
+            GWL_EXSTYLE,
+            (ex_style_click | WS_EX_TRANSPARENT.0) as isize,
+        );
+    }
+    Ok(())
+}
+
+/// Set overlay to "visible" state - full overlay, no click-through for security
+#[tauri::command]
+fn set_overlay_visible(window: tauri::Window) -> Result<(), String> {
+    unsafe {
+        let hwnd = window.hwnd().unwrap().0;
+        
+        // Show window
+        ShowWindow(HWND(hwnd), SW_SHOW);
+        
+        // Set to topmost
+        SetWindowPos(
+            HWND(hwnd),
+            HWND_TOPMOST,
+            0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+        );
+        
+        // Enable layered window for transparency
+        let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        SetWindowLongPtrW(
+            HWND(hwnd),
+            GWL_EXSTYLE,
+            (ex_style | WS_EX_LAYERED.0) as isize,
+        );
+        
+        // Set transparency to allow background visibility but maintain security
+        SetLayeredWindowAttributes(HWND(hwnd), COLORREF(0), 180, LWA_ALPHA);
+        
+        // DISABLE click-through for security - prevent clicks from reaching background
+        let ex_style_click = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        SetWindowLongPtrW(
+            HWND(hwnd),
+            GWL_EXSTYLE,
+            (ex_style_click & !WS_EX_TRANSPARENT.0) as isize,
+        );
+    }
+    Ok(())
+}
+
+/// Toggle overlay visibility with proper state management
+#[tauri::command]
+fn toggle_overlay(window: tauri::Window) -> Result<ApiResponse<bool>, String> {
+    unsafe {
+        let hwnd = window.hwnd().unwrap().0;
+        let is_visible = ShowWindow(HWND(hwnd), SW_SHOW).as_bool();
+        
+        if is_visible {
+            // Switch to hidden state
+            set_overlay_hidden(window)?;
+            Ok(ApiResponse::success(false))
+        } else {
+            // Switch to visible state
+            set_overlay_visible(window)?;
+            Ok(ApiResponse::success(true))
+        }
+    }
+}
+
+/// Set overlay to full screen and properly configured
+#[tauri::command]
+fn setup_overlay(window: tauri::Window) -> Result<(), String> {
+    unsafe {
+        let hwnd = window.hwnd().unwrap().0;
+        
+        // Get screen dimensions
+        let screen_width = GetSystemMetrics(SM_CXSCREEN);
+        let screen_height = GetSystemMetrics(SM_CYSCREEN);
+        
+        // Set window to full screen
+        SetWindowPos(
+            HWND(hwnd),
+            HWND_TOPMOST,
+            0, 0, screen_width, screen_height,
+            SWP_SHOWWINDOW,
+        );
+        
+        // Enable layered window for transparency
+        let ex_style = GetWindowLongPtrW(HWND(hwnd), GWL_EXSTYLE).0 as u32;
+        SetWindowLongPtrW(
+            HWND(hwnd),
+            GWL_EXSTYLE,
+            (ex_style | WS_EX_LAYERED.0) as isize,
+        );
+        
+        // Set initial transparency (fully transparent)
+        SetLayeredWindowAttributes(HWND(hwnd), COLORREF(0), 0, LWA_ALPHA);
+    }
+    Ok(())
+}
+
+/// Show overlay with proper transparency
+#[tauri::command]
+fn show_overlay(window: tauri::Window) -> Result<(), String> {
+    set_overlay_visible(window)
+}
+
+/// Hide overlay
+#[tauri::command]
+fn hide_overlay(window: tauri::Window) -> Result<(), String> {
+    unsafe {
+        let hwnd = window.hwnd().unwrap().0;
+        ShowWindow(HWND(hwnd), SW_HIDE);
+    }
     Ok(())
 }
 
 #[tauri::command]
-fn set_click_through(window: tauri::Window, enabled: bool) -> Result<(), String> {
-    set_click_through_impl(&window, enabled)
+async fn start_audio_stream(audio_stream: tauri::State<'_, AudioStream>) -> Result<ApiResponse<()>, String> {
+    Ok(audio_stream.start_stream().await)
+}
+
+#[tauri::command]
+async fn stop_audio_stream(audio_stream: tauri::State<'_, AudioStream>) -> Result<ApiResponse<()>, String> {
+    Ok(audio_stream.stop_stream().await)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -168,16 +269,16 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_mic_recorder::init())
         .setup(|app| {
-            // Start auto-kill timer with 5 second timeout
-            let auto_kill_config = AutoKillConfig { timeout_secs: 5 };
-            let auto_kill_fn = init_auto_kill(Some(auto_kill_config));
-            auto_kill_fn(&app.handle());
-            
-            // Initialize hotkey manager
             let app_handle = app.handle();
             let hotkey_manager = HotkeyManager::new(app_handle.clone());
             
-            // Register hotkeys and start listener using Tauri's runtime
+            // Setup overlay for main window
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = setup_overlay(window) {
+                    eprintln!("Failed to setup overlay: {}", e);
+                }
+            }
+            
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = hotkey_manager.register_hotkeys().await {
                     eprintln!("Failed to register hotkeys: {}", e);
@@ -190,19 +291,22 @@ pub fn run() {
             
             Ok(())
         })
+        .manage(AudioStream::default())
         .invoke_handler(tauri::generate_handler![
             get_monitors,
             switch_monitor,
-            get_mic_state,
-            toggle_mic,
-            start_audio_stream,
-            stop_audio_stream,
             test_hotkey,
             trigger_action,
-            open_settings_window,
-            close_settings_window,
             quit_app,
-            set_click_through
+            set_click_through,
+            set_overlay_hidden,
+            set_overlay_visible,
+            toggle_overlay,
+            setup_overlay,
+            show_overlay,
+            hide_overlay,
+            start_audio_stream,
+            stop_audio_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

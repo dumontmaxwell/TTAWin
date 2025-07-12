@@ -6630,6 +6630,7 @@ name = "winapp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cpal",
  "once_cell",
  "serde",
  "serde_json",

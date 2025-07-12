@@ -18,14 +18,17 @@
         "transparent": true,
         "decorations": false,
         "alwaysOnTop": true,
-        "skipTaskbar": false,
-        "visible": true,
+        "skipTaskbar": true,
+        "visible": false,
         "center": true,
         "resizable": false,
         "minimizable": false,
         "maximizable": false,
         "closable": true,
-        "url": "index.html"
+        "acceptFirstMouse": false,
+        "titleBarStyle": "Overlay",
+        "url": "index.html",
+        "theme": "Dark"
       }
     ],
     "security": {

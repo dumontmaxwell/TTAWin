@@ -27,9 +27,14 @@ export function useOverlayControls() {
   }
 
   const toggleMic = async () => {
-    const res = await invoke('toggle_mic', { current: store.micEnabled })
-    if (res && typeof res === 'object' && 'data' in res) {
-      store.setMicEnabled(res.data as boolean)
+    if (store.micEnabled) {
+      // Currently enabled, so stop the stream
+      await stopAudioStream()
+      store.setMicEnabled(false)
+    } else {
+      // Currently disabled, so start the stream
+      await startAudioStream()
+      store.setMicEnabled(true)
     }
   }
 
@@ -37,6 +42,8 @@ export function useOverlayControls() {
     const res = await invoke('start_audio_stream')
     if (res && typeof res === 'object' && 'data' in res) {
       console.log('Audio stream started')
+    } else if (res && typeof res === 'object' && 'error' in res) {
+      console.error('Failed to start audio stream:', res.error)
     }
   }
 
@@ -44,6 +51,8 @@ export function useOverlayControls() {
     const res = await invoke('stop_audio_stream')
     if (res && typeof res === 'object' && 'data' in res) {
       console.log('Audio stream stopped')
+    } else if (res && typeof res === 'object' && 'error' in res) {
+      console.error('Failed to stop audio stream:', res.error)
     }
   }
 
