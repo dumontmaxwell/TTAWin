@@ -8,3 +8,32 @@ members = [
 ]
 
 [workspace.dependencies]
+
+# Workspace-level scripts and aliases
+[workspace.metadata]
+name = "TTAWin"
+description = "AI-Powered Learning Assistant with Service-Based Architecture"
+version = "0.1.0"
+
+[workspace.metadata.scripts]
+# Quick service commands (run from workspace root)
+service-debug = "cd packages/windows-service && cargo run -- --debug"
+service-dev = "cd packages/windows-service && cargo run -- --dev"
+service-test = "cd packages/windows-service && powershell -File test-service.ps1"
+service-kill = "cd packages/windows-service && debug.bat kill"
+
+# Build commands
+build-all = "cargo build --workspace"
+build-release = "cargo build --release --workspace"
+test-all = "cargo test --workspace"
+clean-all = "cargo clean --workspace"
+
+# Frontend commands
+frontend-dev = "cd winapp && npm run tauri dev"
+frontend-build = "cd winapp && npm run tauri build"
+frontend-install = "cd winapp && npm install"
+
+# Development utilities
+format = "cargo fmt --all"
+clippy = "cargo clippy --all-targets --all-features"
+check = "cargo check --workspace"
