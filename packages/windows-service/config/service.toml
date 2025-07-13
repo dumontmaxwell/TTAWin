@@ -1,0 +1,52 @@
+# TTAWin Windows Service Configuration
+# This file should be placed in the config/ directory relative to the executable
+
+[server]
+# HTTP server configuration
+host = "127.0.0.1"
+port = 8080
+cors_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",  # Vite dev server
+    "http://127.0.0.1:5173"
+]
+max_connections = 1000
+
+[learning]
+# Learning service configuration
+model_path = "data/models"
+cache_dir = "data/cache"
+max_concurrent_analyses = 4
+enable_gpu = false
+log_level = "info"
+
+[payments]
+# Payment service configuration
+# Set your actual Stripe secret key here (use environment variable in production)
+stripe_secret_key = ""
+crypto_enabled = true
+supported_currencies = [
+    "usd",
+    "eur", 
+    "btc",
+    "eth",
+    "usdc",
+    "usdt",
+    "dai"
+]
+webhook_url = ""
+
+[settings]
+# Settings service configuration
+data_dir = "data"
+backup_enabled = true
+auto_sync = true
+sync_interval_seconds = 300  # 5 minutes
+
+[stream]
+# Stream service configuration
+enabled = true
+buffer_size = 4096
+sample_rate = 16000
+channels = 1 

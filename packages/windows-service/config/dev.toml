@@ -1,0 +1,40 @@
+# TTAWin Windows Service - Development Configuration
+# This configuration is optimized for debugging and development
+
+[server]
+host = "127.0.0.1"
+port = 8080
+cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:1420"]
+max_connections = 100
+
+[learning]
+model_path = "data/models"
+cache_dir = "data/cache"
+max_concurrent_analyses = 2
+enable_gpu = false
+log_level = "debug"
+
+[payments]
+stripe_secret_key = "sk_test_51..."  # Use test key for development
+crypto_enabled = true
+supported_currencies = ["usd", "btc", "eth", "usdc"]
+webhook_url = "http://localhost:8080/webhooks"
+
+[settings]
+data_dir = "data"
+backup_enabled = false  # Disable backups in development
+auto_sync = false       # Disable auto-sync in development
+sync_interval_seconds = 60
+
+[stream]
+enabled = true
+buffer_size = 2048      # Smaller buffer for faster processing
+sample_rate = 16000
+channels = 1
+
+# Development-specific settings
+[development]
+hot_reload = true
+debug_logging = true
+mock_payments = true    # Use mock payment responses
+mock_ai = true          # Use mock AI responses for faster testing 
